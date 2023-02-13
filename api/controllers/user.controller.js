@@ -1,7 +1,7 @@
 const User = require('../models/user.model')
 const mailer = require('../../utils/mailer')
 const { generateUserToken, generateAccessToken, decodeUserToken } = require('../../utils/tokens')
-
+const { encrypt, decrypt } = require('../../utils/passwords')
 exports.createUnverifiedUser = async (req,res) => {
     try {
         let email = req.body.email
@@ -27,7 +27,7 @@ exports.verifyUser = async (req,res) => {
         let password = req.body.password
         let userObj = {
             email:decoded.email,
-            password,
+            password: encrypt(password),
             role:'user',
             verified: true
         }
@@ -52,7 +52,8 @@ exports.login = async (req,res) => {
         }
         else{
             let user = isRegistered[0]
-            if(user.password == password){
+            let decrypted = decrypt(user.password)
+            if(decrypted == password){
                 let token = generateAccessToken(user.email,user.role)
                 res.status(200).json({
                     "message":"login successful",
@@ -115,7 +116,8 @@ exports.forgotPassword = async (req,res) => {
 exports.updateUserCredentials = async (req,res) => {
     try {
         let decoded = decodeUserToken(req.query.token)
-        let user = await User.findOneAndUpdate({email:decoded.email},{password:req.body.password},{new:true})
+        let encrypted = encrypt(req.body.password)
+        let user = await User.findOneAndUpdate({email:decoded.email},{password:encrypted},{new:true})
         if(!user) res.status(404).json({"message":"User not found"})
         res.status(200).json({
             "message": `Updated password for user ${user._id}`,
